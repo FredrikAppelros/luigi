@@ -15,8 +15,9 @@ password = ''
 
 
 try:
-    import vertica_python
-    conn = vertica_python.connect(
+    import pyodbc
+    conn = pyodbc.connect(
+        driver='vertica',
         user=user,
         host=host,
         database=database,
@@ -82,6 +83,10 @@ class Metric2(MetricBase):
         yield 'metric2', 3
 
 
+def rows_to_tuples(rows):
+    return [tuple(r) for r in rows]
+
+
 @attr('vertica')
 class TestVerticaImportTask(unittest.TestCase):
 
@@ -103,11 +108,11 @@ class TestVerticaImportTask(unittest.TestCase):
 
         rows = cursor.fetchall()
 
-        self.assertEqual(rows, [
-            [u'foo', 123, 123.45],
-            [None, -100, 5143.213],
-            [u'éцү我', 0, 0.0],
-            [None, 0, None]
+        self.assertEqual(rows_to_tuples(rows), [
+            (u'foo', 123, 123.45),
+            (None, -100, 5143.213),
+            (u'éцү我', 0, 0.0),
+            (None, 0, None)
         ])
 
     def test_multimetric(self):
@@ -119,7 +124,7 @@ class TestVerticaImportTask(unittest.TestCase):
 
         cursor = conn.cursor()
         cursor.execute('SELECT COUNT(*) FROM {}'.format(metrics.table))
-        self.assertEqual(cursor.fetchall(), [[9]])
+        self.assertEqual(rows_to_tuples(cursor.fetchall()), [(9,)])
 
     def test_clear(self):
         class Metric2Copy(Metric2):
@@ -137,4 +142,4 @@ class TestVerticaImportTask(unittest.TestCase):
         luigi.build([clearer], local_scheduler=True)
         cursor = conn.cursor()
         cursor.execute('SELECT COUNT(*) FROM {}'.format(clearer.table))
-        self.assertEqual(cursor.fetchall(), [[3]])
+        self.assertEqual(rows_to_tuples(cursor.fetchall()), [(3,)])
